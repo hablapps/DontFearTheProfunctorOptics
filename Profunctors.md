@@ -205,8 +205,8 @@ instance Cocartesian (->) where
 Indeed, this typeclass is very similar to `Cartesian`, but the resulting box
 deals with sum types (`Either`) instead of product types. What does it mean from
 our diagram perspective? It means that inputs are exclusive and only one of them
-will be active in a particular time. The input itself determines which part of
-the component is active. The new component is shown in the next picture:
+will be active in a particular time. The input itself determines which path
+should be active. The corresponding diagram is shown in the next picture:
 
 ![cocartesian](diagram/cocartesian.svg)
 
@@ -250,15 +250,14 @@ instance Monoidal (->) where
   empty = id
 ```
 
-Now, we'll focus on `par`. It receives a pair of components, `p a b` and `p c
-d`, and it builds a new component `p (a, c) (b, d)`. Given this signature, it's
-easy to figure out what is going on inside the resulting component. It's shown
-in the next diagram:
+Now, we'll focus on `par`. It receives a pair of boxes, `p a b` and `p c d`, and
+it builds a new box typed `p (a, c) (b, d)`. Given this signature, it's easy to
+figure out what's going on in the shadows. It's shown in the next diagram:
 
 ![monoidal](diagram/monoidal.svg)
 
-The resulting component make both arguments (`h` and `j`) coexist, by connecting
-them in parallel (therefore the name `par`).
+The resulting box make both arguments (`h` and `j`) coexist, by connecting them
+in parallel (therefore the name `par`).
 
 ### Beyond Functions
 
@@ -334,4 +333,4 @@ We've chosen `DownStar` and `Tagged` because we'll use them in the final part.
 However, you should know that there're other awesome instances for profunctors
 [out
 there](https://ocharles.org.uk/blog/guest-posts/2013-12-22-24-days-of-hackage-profunctors.html).
-As you see, profunctors arise everywhere!
+As you see, profunctors also arise everywhere!
