@@ -18,7 +18,7 @@ Informally, lenses are useful to access a certain *focus* value which is context
 
 ```haskell
 data Lens s a = Lens { view   :: s -> a
-                     , update :: a -> s -> s }
+                     , update :: (a, s) -> s }
 ```
 
 The typical lens example is `π1`, which access the first component (the focus) of a 2-tuple (the whole):
@@ -27,7 +27,7 @@ The typical lens example is `π1`, which access the first component (the focus) 
 π1 :: Lens (a, b) a
 π1 = Lens v u where
   v = fst
-  u a' (_, b) = (a', b)
+  u (a', (_, b)) = (a', b)
 ```
 
 We provide an usage example as well:
@@ -35,7 +35,7 @@ We provide an usage example as well:
 ```haskell
 λ> view π1 (1, 'a')
 1
-λ> update π1 2 (1, 'a')
+λ> update π1 (2, (1, 'a'))
 (2,'a')
 ```
 
@@ -43,22 +43,22 @@ This is nice, but we could do better. What if we teach our lenses to morph the t
 
 ```haskell
 data Lens s t a b = Lens { view   :: s -> a
-                         , update :: b -> s -> t }
+                         , update :: (b, s) -> t }
 ```
 
 As a result, `π1` turns into:
 
 ```haskell
-π1' :: Lens (a, c) (b, c) a b
-π1' = Lens v u where
+π1 :: Lens (a, c) (b, c) a b
+π1 = Lens v u where
   v = fst
-  u b (_, c) = (b, c)
+  u (b, (_, c)) = (b, c)
 ```
 
-Surprisingly, both `π1` and `π1'` share the same implementation, but notice the change in the signature. Now, we can use our new lens in a polymorphic way:
+Surprisingly, both versions share the same implementation, but notice the change in the signature. Now, we can use our new lens in a polymorphic way:
 
 ```haskell
-λ> update π1 "hi" (1, 'a')
+λ> update π1 ("hi", (1, 'a'))
 ("hi",'a')
 ```
 
@@ -66,13 +66,13 @@ It is worth mentioning that lenses should hold a few laws:
 
 ```haskell
 viewUpdate :: Eq s => Lens s s a a -> s -> Bool
-viewUpdate ln s = update ln (view ln s) s == s
+viewUpdate (Lens v u) s = u ((v s), s) == s
 
 updateView :: Eq a => Lens s s a a -> a -> s -> Bool
-updateView ln a s = view ln (update ln a s) == a
+updateView (Lens v u) a s = v (u (a, s)) == a
 
 updateUpdate :: Eq s => Lens s s a a -> a -> a -> s -> Bool
-updateUpdate ln a1 a2 s = update ln a2 (update ln a1 s) == update ln a2 s
+updateUpdate (Lens v u) a1 a2 s = u (a2, (u (a1, s))) == u (a2, s)
 ```
 
 Informally, these laws check that `update` is exclusively modifying the focus and that `view` extracts that focus value as is.
@@ -80,7 +80,7 @@ Informally, these laws check that `update` is exclusively modifying the focus an
 You might be thinking that lenses are not necessary to achieve such a simple task. Why should we care about them? The thing is that they have become very handy to deal with nested immutable data structures. In fact, this is a direct consequence of one of the major features of optics: they compose! As an example, we could compose lenses to update the first component of a 2-tuple which is surrounded by additional 2-tuple layers:
 
 ```haskell
-λ> update (π1 |.| π1 |.| π1) "hi" (((1, 'a'), 2.0), True)
+λ> update (π1 |.| π1 |.| π1) ()"hi", (((1, 'a'), 2.0), True))
 ((("hi",'a'),2.0),True)
 ```
 
@@ -88,9 +88,9 @@ The composition method is implemented as follows:
 
 ```haskell
 (|.|) :: Lens s t a b -> Lens a b c d -> Lens s t c d
-ln1 |.| ln2 = Lens v u where
-  v = view ln2 . view ln1
-  u d s = update ln1 (update ln2 d (view ln1 s)) s
+(Lens v1 u1) |.| (Lens v2 u2) = Lens v u where
+  v = v2 . v1
+  u (d, s) = u1 ((u2 (d, (v1 s))), s)
 ```
 
 Nevertheless, this way of composing optics is clumsy. This is evidenced when we try to compose lenses with other kinds of optics, where we require a different method for each kind we want to compose with. Consequently, libraries that use concrete representation become more verbose, and programmers that use this libraries require a deep knowledge on the composition interface. As we'll see in further sections, profunctor optics make composition trivial. For now, let's forget about composition and focus on getting comfortable with concrete optic operations.
@@ -108,10 +108,10 @@ Adapters should obey some rules as well:
 
 ```haskell
 fromTo :: Eq s => Adapter s s a a -> s -> Bool
-fromTo ad s = (to ad . from ad) s == s
+fromTo (Adapter f t) s = (t . f) s == s
 
 toFrom :: Eq a => Adapter s s a a -> a -> Bool
-toFrom ad a = (from ad . to ad) a == a
+toFrom (Adapter f t) a = (f . t) a == a
 ```
 
 Basically, they're telling us that this optic should behave as an isomorphism.
@@ -147,10 +147,10 @@ They have two operations: `match` and `build`. The first one tries to extract th
 
 ```haskell
 matchBuild :: Eq s => Prism s s a a -> s -> Bool
-matchBuild pr s = either (build pr) id (match pr s) == s
+matchBuild (Prism m b) s = either b id (m s) == s
 
 buildMatch :: (Eq a, Eq s) => Prism s s a a -> a -> Bool
-buildMatch pr a = match pr (build pr a) == Left a
+buildMatch (Prism m b) a = m (b a) == Left a
 ```
 
 They manifest the consistency between `match` and `build`: if we are able to view an existing focus, building it will return the original structure; if we build a whole from any focus, that whole must contain a focus.
@@ -181,20 +181,20 @@ There's a little-known optic which is a hybrid between lenses and prisms. It's k
 
 ```haskell
 data Affine s t a b = Affine { preview :: s -> Either a t
-                             , set     :: b -> s -> t }
+                             , set     :: (b, s) -> t }
 ```
 
 We can see two methods here: `preview` and `set`. As you might have noticed, this optic has borrowed prism's `match` and lens' `update`. The intuition behind these methods is the same that the one behind their counterparts. These are affine's laws:
 
 ```haskell
 previewSet :: Eq s => Affine s s a a -> s -> Bool
-previewSet af s = either (flip (set af) s) id (preview af s) == s
+previewSet (Affine p st) s = either (\a -> st (a, s)) id (p s) == s
 
 setPreview :: (Eq a, Eq s) => Affine s s a a -> a -> s -> Bool
-setPreview af a s = preview af (set af a s) == Bi.first (const a) (preview af s)
+setPreview (Affine p st) a s = p (st (a, s)) == either (Left . const a) Right (p s)
 
 setSet :: Eq s => Affine s s a a -> a -> a -> s -> Bool
-setSet af a1 a2 s = set af a2 (set af a1 s) == set af a2 s
+setSet (Affine p st) a1 a2 s = st (a2, (st (a1, s))) == st (a2, s)
 ```
 
 The intuition is pretty similar to the one behind prisms, but there's an important difference: when setting a value, it doesn't necessarily mean that `preview` will return it, but in case it does, the value will be exactly the one which was set. In fact, `set` only updates the whole structure if it does contain a focus value.
@@ -203,9 +203,9 @@ Here's an example of affine, which tries to access `a` in `(Maybe a, c)`:
 
 ```haskell
 maybeFirst :: Affine (Maybe a, c) (Maybe b, c) a b
-maybeFirst = Affine p s where
+maybeFirst = Affine p st where
   p (ma, c) = maybe (Right (Nothing, c)) Left ma
-  s b (ma, c) = (ma $> b, c)
+  st (b, (ma, c)) = (ma $> b, c)
 ```
 
 There's no always an `a` hidden behind this data structure. On the other hand, we can't build a whole `(Maybe b, c)` simply from a `b`. In fact, we need a `c` to do so. In addition, the affine laws make it impossible to update the focus if it didn't exist in the whole. Therefore, we need the complete `(Maybe a, c)` as contextual information. Next, we show a scenario where we run this optic:
@@ -215,9 +215,9 @@ There's no always an `a` hidden behind this data structure. On the other hand, w
 Left 1
 λ> preview maybeFirst (Nothing, "hi")
 Right (Nothing,"hi")
-λ> set maybeFirst 'a' (Just 1, "hi")
+λ> set maybeFirst ('a', (Just 1, "hi"))
 (Just 'a',"hi")
-λ> set maybeFirst 'a' (Nothing, "hi")
+λ> set maybeFirst ('a', (Nothing, "hi"))
 (Nothing,"hi")
 ```
 
@@ -238,7 +238,7 @@ Here, `contents` is responsible for getting all the focus values, while `fill` u
 firstNSecond :: Traversal (a, a, c) (b, b, c) a b
 firstNSecond = Traversal c f where
   c (a1, a2, _)  = [a1, a2]
-  f bs (_, _, c) = (head bs, head (tail bs), c)
+  f (bs, (_, _, x)) = (head bs, (head . tail) bs, x)
 ```
 
 This traversal includes the first and second components of a 3-tuple as focus values. Notice that the impure `fill` implementation is just a consequence of using our fake representation. Think of what would happen if we provided an empty list while filling. Anyway, here's how we use `firstNSecond`:
@@ -246,7 +246,7 @@ This traversal includes the first and second components of a 3-tuple as focus va
 ```haskell
 λ> contents firstNSecond (1, 2, "hi")
 [1,2]
-λ> fill firstNSecond ['a', 'b'] (1, 2, "hi")
+λ> fill firstNSecond (['a', 'b'], (1, 2, "hi"))
 ('a','b',"hi")
 ```
 
