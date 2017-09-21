@@ -7,7 +7,7 @@ by Pickering et al. Our contribution relies on providing box diagrams to make
 profunctor and profunctor optics easier to approach.
 
 * Part I: [Optics, Concretely](Optics.md)
-* Part II: Profunctors
+* Part II: [Profunctors](Profunctors.md)
 * Part III: Profunctor Optics
 
 Any feedback is welcome!

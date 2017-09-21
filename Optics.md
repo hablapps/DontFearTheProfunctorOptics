@@ -253,3 +253,5 @@ This traversal includes the first and second components of a 3-tuple as focus va
 ### Conclusions
 
 Today, we've introduced some of the most representative optics (along with their associated laws) in their concrete representation. They all hold the notion of focus and whole, which will be very useful when facing profunctor optics. On the other hand, we could appreciate that traversals are quite tricky. If you feel curious about the right way of representing them, you can read [this great article](https://arxiv.org/pdf/1103.2841.pdf) by Russell O'Connor, where they were firstly introduced. The next day, we'll cover profunctors, which suppose an intermediate step of preparation before dealing with profunctor optics.
+
+NEXT: [Profunctors as Generalized Functions](Profunctors.md)
