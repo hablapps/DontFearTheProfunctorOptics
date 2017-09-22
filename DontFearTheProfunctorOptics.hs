@@ -5,6 +5,8 @@
 module DontFearTheProfunctorOptics where
 
 import Data.Functor
+import Data.Functor.Constant
+import Data.List
 
 --------------------------------
 -- Part I: Optics, Concretely --
@@ -21,8 +23,8 @@ fromTo (Adapter f t) s = (t . f) s == s
 toFrom :: Eq a => Adapter s s a a -> a -> Bool
 toFrom (Adapter f t) a = (f . t) a == a
 
-assoc :: Adapter ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
-assoc = Adapter f t where
+shift :: Adapter ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
+shift = Adapter f t where
   f ((a, b), c) = (a, (b, c))
   t (a', (b', c')) = ((a', b'), c')
 
@@ -99,8 +101,8 @@ data FunList a b t = Done t | More a (FunList a b (b -> t))
 
 newtype Traversal' s t a b = Traversal' { extract :: s -> FunList a b t }
 
-firstNSecond' :: Traversal' (a, a, c) (b, b, c) a b
-firstNSecond' = Traversal' (\(a1, a2, c) -> More a1 (More a2 (Done (,,c))))
+firstNSecond'' :: Traversal' (a, a, c) (b, b, c) a b
+firstNSecond'' = Traversal' (\(a1, a2, c) -> More a1 (More a2 (Done (,,c))))
 
 ---------------------------------------------------
 -- Part II: Profunctors as Generalized Functions --
@@ -198,3 +200,100 @@ instance Cocartesian Tagged where
 instance Monoidal Tagged where
   par (Tagged b) (Tagged d) = Tagged (b, d)
   empty = Tagged ()
+
+---------------------------------
+-- Part III: Profunctor Optics --
+---------------------------------
+
+type Optic p s t a b = p a b -> p s t
+
+-- Profunctor Adapter
+
+type AdapterP s t a b = forall p . Profunctor p => Optic p s t a b
+
+adapterC2P :: Adapter s t a b -> AdapterP s t a b
+adapterC2P (Adapter f t) = dimap f t
+
+from' :: AdapterP s t a b -> s -> a
+from' ad = getConstant . runUpStar (ad (UpStar Constant))
+
+to' :: AdapterP s t a b -> b -> t
+to' ad = unTagged . ad . Tagged
+
+shift' :: AdapterP ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
+shift' = dimap assoc assoc' where
+  assoc  ((x, y), z) = (x, (y, z))
+  assoc' (x, (y, z)) = ((x, y), z)
+
+-- Profunctor Lens
+
+type LensP s t a b = forall p . Cartesian p => Optic p s t a b
+
+lensC2P :: Lens s t a b -> LensP s t a b
+lensC2P (Lens v u) = dimap dup u . first . lmap v where
+  dup a = (a, a)
+
+view' :: LensP s t a b -> s -> a
+view' ln = getConstant . runUpStar (ln (UpStar Constant))
+
+update' :: LensP s t a b -> (b, s) -> t
+update' ln (b, s) = ln (const b) s
+
+π1' :: LensP (a, c) (b, c) a b
+π1' = first
+
+-- Profunctor Prism
+
+type PrismP s t a b = forall p . Cocartesian p => Optic p s t a b
+
+prismC2P :: Prism s t a b -> PrismP s t a b
+prismC2P (Prism m b) = dimap m (either id id) . left . rmap b
+
+match' :: PrismP s t a b -> s -> Either a t
+match' pr = runUpStar (pr (UpStar Left))
+
+build' :: PrismP s t a b -> b -> t
+build' pr = unTagged . pr . Tagged
+
+the' :: PrismP (Maybe a) (Maybe b) a b
+the' = dimap (maybe (Right Nothing) Left) (either Just id) . left
+
+-- Profunctor Affine
+
+type AffineP s t a b = forall p . (Cartesian p, Cocartesian p) => Optic p s t a b
+
+affineC2P :: Affine s t a b -> AffineP s t a b
+affineC2P (Affine p st) = dimap preview' merge . left . rmap st . first where
+  preview' s = either (\a -> Left (a, s)) Right (p s)
+  merge = either id id
+
+preview' :: AffineP s t a b -> s -> Either a t
+preview' af = runUpStar (af (UpStar Left))
+
+set' :: AffineP s t a b -> (b, s) -> t
+set' af (b, s) = af (const b) s
+
+maybeFirst' :: AffineP (Maybe a, c) (Maybe b, c) a b
+maybeFirst' = first . dimap (maybe (Right Nothing) Left) (either Just id) . left
+
+maybeFirst'' :: AffineP (Maybe a, c) (Maybe b, c) a b
+maybeFirst'' = π1' . the'
+
+-- Profunctor Traversal
+
+type TraversalP s t a b = forall p . (Cartesian p, Cocartesian p, Monoidal p) => Optic p s t a b
+
+traversalC2P :: Traversal s t a b -> TraversalP s t a b
+traversalC2P (Traversal c f) = dimap dup f . first . lmap c . ylw where
+  ylw h = dimap (maybe (Right []) Left . uncons) merge $ left $ rmap cons $ par h (ylw h)
+  cons = uncurry (:)
+  dup a = (a, a)
+  merge = either id id
+
+contents' :: TraversalP s t a b -> s -> [a]
+contents' tr = getConstant . runUpStar (tr (UpStar (\a -> Constant [a])))
+
+firstNSecond' :: TraversalP (a, a, c) (b, b, c) a b
+firstNSecond' pab = dimap group group' (first (pab `par` pab)) where
+  group  (x, y, z) = ((x, y), z)
+  group' ((x, y), z) = (x, y, z)

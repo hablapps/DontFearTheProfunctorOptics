@@ -116,21 +116,21 @@ toFrom (Adapter f t) a = (f . t) a == a
 
 Basically, they're telling us that this optic should behave as an isomorphism.
 
-As an adapter example, we supply `assoc`, which evidences that associative changes in tuples aren't lossy:
+As an adapter example, we supply `shift`, which evidences that associativity changes in tuples aren't lossy:
 
 ```haskell
-assoc :: Adapter ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
-assoc = Adapter f t where
+shift :: Adapter ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
+shift = Adapter f t where
   f ((a, b), c) = (a, (b, c))
   t (a', (b', c')) = ((a', b'), c')
 ```
 
-We show a simple usage scenario for `assoc` in the next gist:
+We show a simple usage scenario for `shift` in the next gist:
 
 ```haskell
-λ> from assoc ((1, "hi"), True)
+λ> from shift ((1, "hi"), True)
 (1,("hi",True))
-λ> to assoc (True, ("hi", 1))
+λ> to shift (True, ("hi", 1))
 ((True,"hi"),1)
 ```
 

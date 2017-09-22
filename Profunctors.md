@@ -334,3 +334,5 @@ However, you should know that there're other awesome instances for profunctors
 [out
 there](https://ocharles.org.uk/blog/guest-posts/2013-12-22-24-days-of-hackage-profunctors.html).
 As you see, profunctors also arise everywhere!
+
+NEXT: [Profunctor Optics](ProfunctorOptics.md)
