@@ -12,7 +12,9 @@ produce outputs. Here we go!
 ## Profunctors as Generalized Functions
 
 (Covariant) Functors arise everywhere! When we put our programmer's glasses on,
-we can view them as containers that can be mapped over with `fmap`:
+we can view them [as
+containers](https://bartoszmilewski.com/2014/01/14/functors-are-containers/)
+that can be mapped over with `fmap`:
 
 ```haskell
 class Functor f where
@@ -44,7 +46,10 @@ instance Contravariant (CReader r) where
   cmap f (CReader g) = CReader (g . f)
 ```
 
-Now, we should be ready to approach profunctors. Let's do it!
+Now, we should be ready to approach profunctors. For each member of the
+profunctor family, we'll show its typeclass and associated laws, along with a `(->)`
+instance. Then, we'll provide an informal explanation which is supported by our
+profunctor diagrams.
 
 ### Profunctor
 
@@ -63,8 +68,9 @@ class Profunctor p where
 ```
 
 `lmap` and `rmap` are utilities to map either the covariant or the contravariant
-type parameter. Therefore, they correspond with `cmap` and `fmap`, respectively.
-As every interesting typeclass, profunctors do obey some laws:
+type parameter. Therefore, they correspond with contravariant's `cmap` and
+functor's `fmap`, respectively. As every interesting typeclass, profunctors do
+obey some laws:
 
 ```haskell
 dimap id id = id
@@ -78,13 +84,15 @@ instance Profunctor (->) where
   dimap f g h = g . h . f
 ```
 
-In fact, profunctors can be seen as generalizations of functions. As a
+#### Explanation
+
+Profunctors are best understood as generalizations of functions. As a
 consequence, we can see them as boxes that take an input and provide an output.
 Thereby, `dimap` just adapts inputs and outputs to conform new boxes. Given this
 intuition, I noticed that drawing diagrams could be helpful to understand the
 profunctor family. Soon, I realized that these new diagrams were quite similar
 to the ones provided by [Hughes for arrows](https://www.haskell.org/arrows/). In
-fact, there seem to be [further
+fact, there are [strong
 connections](https://stackoverflow.com/questions/38169453/whats-the-relationship-between-profunctors-and-arrows)
 among them. From now on, we'll be using them to provide a visual perspective of
 profunctors:
@@ -122,14 +130,15 @@ class Profunctor p => Cartesian p where
   second :: p a b -> p (c, a) (c, b)
 ```
 
-These are the laws associated to this typeclass:
+These are the laws associated to this typeclass (skipping the counterparts for
+`second`):
 
 ```haskell
 dimap runit runit' h = first h
 dimap assoc assoc' (first (first h)) = first h
 -- where
-runit  :: a x 1 -> a
-runit' :: a -> a x 1
+runit  :: (a, ()) -> a
+runit' :: a -> (a, ())
 assoc  :: (a, (b, c)) -> ((a, b), c)
 assoc' :: ((a, b), c) -> (a, (b, c))
 ```
@@ -141,6 +150,8 @@ instance Cartesian (->) where
   first  f (a, c) = (f a,   c)
   second f (c, a) = (  c, f a)
 ```
+
+#### Explanation
 
 Again, this typeclass contains methods that turn certain box `p a b` into
 new ones. Particularly, these methods make our original box coexist with
@@ -166,10 +177,10 @@ to be implicit in our diagram representation. The second law `dimap assoc assoc'
 
 ![cartesian-law2](diagram/cartesian-law2.svg)
 
-This representation seems way much complex, but in essence, it states that
-nesting `first`s doesn't break previous law. This is implicit in the diagram as
-well, where `b` and `c` both simply pass trough, though following a longer path
-in the upper circuit.
+This representation seems more complex, but in essence, it states that nesting
+`first`s doesn't break previous law. This is implicit in the diagram as well,
+where `b` and `c` simply pass trough, regardless of the nested boxes in the
+upper case.
 
 ### Cocartesian
 
@@ -182,16 +193,16 @@ class Profunctor p => Cocartesian p where
   right :: p a b -> p (Either c a) (Either c b)
 ```
 
-Its laws are these ones:
+Its laws are these ones (ignoring `right` counterparts):
 
 ```haskell
 dimap rzero rzero' h = left h
 dimap coassoc' coassoc (left (left h)) = left h
 --where
-rzero    :: a + 0 -> a
-rzero'   :: a -> a + 0
-coassoc  :: a + (b + c) -> (a + b) + c
-coassoc' :: (a + b) + c -> a + (b + c)
+rzero    :: Either a Void -> a
+rzero'   :: a -> Either a Void
+coassoc  :: Either a (Either b c) -> Either (Either a b) c
+coassoc' :: Either (Either a b) c -> Eigher a (Either b c)
 ```
 
 And here it's the function instance:
@@ -202,6 +213,8 @@ instance Cocartesian (->) where
   right f = either Left (Right . f)
 ```
 
+#### Explanation
+
 Indeed, this typeclass is very similar to `Cartesian`, but the resulting box
 deals with sum types (`Either`) instead of product types. What does it mean from
 our diagram perspective? It means that inputs are exclusive and only one of them
@@ -210,13 +223,13 @@ should be active. The corresponding diagram is shown in the next picture:
 
 ![cocartesian](diagram/cocartesian.svg)
 
-As one could see, `left` turns the original `h :: p a b` into a box typed `p a+c
-b+c`. Internally, when an `a` matches, [the
+As one could see, `left` turns the original `h :: p a b` into a box typed `p
+(Either a c) (Either b c)`. Internally, when an `a` matches, [the
 switch](http://lightwiring.co.uk/wp-content/uploads/2013/03/2-way-switching-2-wire-control-schematic-diagram.jpg)
 takes the upper path, where `h` delivers a `b` as output. Otherwise, when `c`
 matches, the lower path will be activated, and the value passes through as is.
 Notice that switches in both extremes must be coordinated to make things work,
-either activating the upper or the lower case. On the other hand, `right` is
+either activating the upper or the lower path. On the other hand, `right` is
 like `left` where paths are swapped. We left diagram representation of laws as
 an exercise for the reader.
 
@@ -238,8 +251,8 @@ dimap assoc assoc' (par (par h j) k) = par h (par j k)
 dimap runit runit' h = par h empty
 dimap lunit lunit' h = par empty h
 -- where
-lunit  :: 1 x a -> a
-lunit' :: a -> 1 x a
+lunit  :: ((), a) -> a
+lunit' :: a -> ((), a)
 ```
 
 Instantiating this typeclass for function is trivial:
@@ -249,6 +262,8 @@ instance Monoidal (->) where
   par f g (a, c) = (f a, g c)
   empty = id
 ```
+
+#### Explanation
 
 Now, we'll focus on `par`. It receives a pair of boxes, `p a b` and `p c d`, and
 it builds a new box typed `p (a, c) (b, d)`. Given this signature, it's easy to
@@ -283,6 +298,7 @@ instance Functor f => Cartesian (UpStar f) where
   first (UpStar f)  = UpStar (\(a, c) -> fmap (,c) (f a))
   second (UpStar f) = UpStar (\(c, a) -> fmap (c,) (f a))
 
+-- XXX: `Pointed` should be good enough, but it lives in external lib
 instance Applicative f => Cocartesian (UpStar f) where
   left  (UpStar f) = UpStar (either (fmap Left . f) (fmap Right . pure))
   right (UpStar f) = UpStar (either (fmap Left . pure) (fmap Right . f))
@@ -301,17 +317,16 @@ parameter type) as an exercise:
 newtype DownStar f a b = DownStar { runDownStar :: f a -> b }
 ```
 
-In general, it's ok to think of profunctors as functions taking arguments and
-returning outputs. However, you need to know that the generalization provided by
-profunctors goes further. Take
-[`Tagged`](http://oleg.fi/gists/posts/2017-04-18-glassery.html) as an example:
+Take [`Tagged`](http://oleg.fi/gists/posts/2017-04-18-glassery.html) as another
+example:
 
 ```haskell
 newtype Tagged a b = Tagged { unTagged :: b }
 ```
 
-This is just a wrapper for `b`s, having `a` as a phantom input type. You can
-provide instances for many profunctor typeclasses with it:
+This is just a wrapper for `b`s, having `a` as a phantom input type. In fact, it
+represents somehow a constant function. You can provide instances for many
+profunctor typeclasses with it:
 
 ```haskell
 instance Profunctor Tagged where
@@ -329,9 +344,9 @@ instance Monoidal Tagged where
 Try to reason about the impossibility of determining an instance for `Cartesian`
 as an exercise.
 
-We've chosen `DownStar` and `Tagged` because we'll use them in the final part.
-However, you should know that there're other awesome instances for profunctors
-[out
+We've chosen `DownStar` and `Tagged` because we'll use them in the next part of
+this series. However, you should know that there are other awesome instances for
+profunctors [out
 there](https://ocharles.org.uk/blog/guest-posts/2013-12-22-24-days-of-hackage-profunctors.html).
 As you see, profunctors also arise everywhere!
 
