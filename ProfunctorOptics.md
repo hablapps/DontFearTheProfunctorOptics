@@ -8,32 +8,37 @@ Profunctor, as concrete, is just another representation for optics. The general
 structure for profunctor optics is the next one:
 
 ```haskell
-type Optic p s t a b = p a b -> p s t
+type Optic s t a b = forall p . (C0 p, ..., CN p) => p a b -> p s t
 ```
 
-So, every optic defined using this representation must know how to turn a `p a
-b` into a `p s t`. What does this mean? Previously, we said that we can see this
-profunctors as generalizations of functions, and we represented them as boxes.
-Besides, we could appreciate that optics in general, are abstractions that deal
-with polymorphic focus and whole values. Having said so, the alias we have just
-shown tells us that in order to fulfill an optic, we must determine how to take
-a generalized function on the focus to its counterpart on the whole.
+So, every optic defined using this representation should know how to turn a `p a
+b` into a `p s t`, for any type `p` (notice the universal quantification
+`forall`), as long as it satisfies certain constraints (`C0`, `CN`, etc.), which
+will vary depending on the particular optic we want to represent. What does this
+mean? Previously, we said that we can see this profunctors as generalizations of
+functions, and we represented them as boxes. Besides, we could appreciate that
+optics in general, are abstractions that deal with polymorphic focus and whole
+values. Having said so, the alias we have just shown tells us that in order to
+fulfill an optic, we must determine how to take any generalized function on the
+focus to its counterpart on the whole.
 
 For each optic kind, we'll show how to expand a focus box into a whole box,
-using our diagram notation. That will determine the minimal constraints that are
-needed to conform the particular optic. Then, we'll follow the opposite
-direction, bringing the concrete representation from the profunctor one.
-Finally, the examples which were shown in the first installment of this post
-series will be redefined with the new representation.
+using our diagram notation and the concrete representation. That will determine
+the minimal constraints that are needed to conform the particular optic. Then,
+we'll follow the opposite direction, bringing the concrete representation from
+the profunctor one. Finally, the examples which were shown in the first
+installment (`π1`, `the`, etc.) of this post series will be redefined with the
+new representation.
 
 ### Profunctor Adapter
 
 We'll start by `Adapter`, given its simple nature. Recall that we'll be facing
-the same problem for every optic kind: we need to turn a `p a b` into a `p s t`.
-Undoubtedly, the extension process will be different for each case.
-Particularly, we saw that adapters are represented concretely by means of `from ::
-s -> a` and `to :: b -> t`. How could we get a `p s t` given `p a b` and this
-pair of functions? We show it in the next picture:
+the same problem for every optic kind: we need to turn a `p a b` into a `p s t`,
+given any `p` that satisfies the particular constraints. Undoubtedly, the
+extension process will be different for each case. Particularly, we saw that
+adapters are represented concretely by means of `from :: s -> a` and `to :: b ->
+t`. How could we get a `p s t` given `p a b` (for any type constructor `p`) and
+this pair of functions? We show it in the next picture:
 
 ![adapter](diagram/adapter.svg)
 
@@ -42,7 +47,7 @@ Thereby, the only feature that we require to extend `h :: p a b` into `p s t` is
 follows:
 
 ```haskell
-type AdapterP s t a b = forall p . Profunctor p => Optic p s t a b
+type AdapterP s t a b = forall p . Profunctor p => p a b => p s t
 ```
 
 In fact, we could translate the diagram above into Haskell this way:
@@ -52,8 +57,9 @@ adapterC2P :: Adapter s t a b -> AdapterP s t a b
 adapterC2P (Adapter f t) = dimap f t
 ```
 
-How do we recover the concrete representation? To do so, we need to use a
-specific profunctor instance for each operator. For instance, we require `UpStar
+Conversely, how do we recover the concrete representation from the profunctor
+one? To do so, we need to use a specific profunctor instance for each operator
+of the concrete representation (`from` & `to`). For instance, we require `UpStar
 Constant` and `Tagged` to recover `from` and `to`, respectively:
 
 ```haskell
@@ -67,8 +73,17 @@ to' ad = unTagged . ad . Tagged
 These definitions, though simple, are not straightforward at all. By now, we're
 more than happy if you feel comfortable with the diagrams.
 
-Finally, we'll redefine our `shift` example using the new profunctor
-representation for adapters:
+Finally, we'll redefine the original `shift` example, that we show again as a
+reminder:
+
+```haskell
+shift :: Adapter ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
+shift = Adapter f t where
+  f ((a, b), c) = (a, (b, c))
+  t (a', (b', c')) = ((a', b'), c')
+```
+
+Using the new profunctor representation for adapters we get:
 
 ```haskell
 shift' :: AdapterP ((a, b), c) ((a', b'), c') (a, (b, c)) (a', (b', c'))
@@ -84,8 +99,8 @@ complex, containing `view :: s -> a` and `update :: (b, s) -> t`. It seems
 trivial to extend `p a b` in the left with `view`, to get a `p s b`. However, we
 can't use `update` in the right, since it requires not only a `b` but also a
 `s`. If we review our toolbox, we know that it's possible to have the original
-`s` passing through, living along with the original box. This is how we build a
-lens diagram from `p a b`:
+`s` passing through, living along with the original box using cartesian. This is
+how we build a lens diagram from `p a b`:
 
 ![lens](diagram/lens.svg)
 
@@ -94,7 +109,7 @@ interoperable with a multi-input box. Since we only require `Profunctor` and
 `Cartesian`, our profunctor lens is represented as follows:
 
 ```haskell
-type LensP s t a b = forall p . Cartesian p => Optic p s t a b
+type LensP s t a b = forall p . Cartesian p => p a b => p s t
 ```
 
 And this is how we encode the previous diagram:
@@ -105,8 +120,8 @@ lensC2P (Lens v u) = dimap dup u . first . lmap v where
   dup a = (a, a)
 ```
 
-We could recover the concrete lens from a profunctor lens by using `UpStar
-Constant` and `->` instances:
+On the other hand, we could recover the concrete lens from a profunctor lens by
+using `UpStar Constant` and `->` instances:
 
 ```haskell
 view' :: LensP s t a b -> s -> a
@@ -116,7 +131,16 @@ update' :: LensP s t a b -> (b, s) -> t
 update' ln (b, s) = ln (const b) s
 ```
 
-Now it's turn to redefine `π1`. You might be surprised with this one:
+Now it's turn to redefine `π1`. It was originally defined as follows::
+
+```haskell
+π1 :: Lens (a, c) (b, c) a b
+π1 = Lens v u where
+  v = fst
+  u (b, (_, c)) = (b, c)
+```
+
+You might be surprised with the profunctor representation:
 
 ```haskell
 π1' :: LensP (a, c) (b, c) a b
@@ -124,15 +148,14 @@ Now it's turn to redefine `π1`. You might be surprised with this one:
 ```
 
 Indeed, `first` provides all we need to access the first component of a tuple!
-Consequently, `second` could serve us to access the corresponding second
-component.
+Similarly, `second` could serve us to access the corresponding second component.
 
 ### Profunctor Prism
 
 Now, it's the turn for profunctor prisms. Recall that the concrete definition
 contains `match :: s -> a + t` and `build :: b -> t`. Again, if we want to
-extend our `p a b` into a `p s t` we're gonna need additional help. The
-resulting picture for a prism circuit is represented in the next picture:
+extend our `p a b` into a `p s t` we're gonna need some help. The resulting
+picture for a prism circuit is represented in the next picture:
 
 ![prism](diagram/prism.svg)
 
@@ -144,7 +167,7 @@ t` into a `t`. From this diagram, we can infer that a prism depends on
 `Cocartesian`:
 
 ```haskell
-type PrismP s t a b = forall p . Cocartesian p => Optic p s t a b
+type PrismP s t a b = forall p . Cocartesian p => p a b => p s t
 ```
 
 As usual, here it is the textual version of the diagram above:
@@ -165,7 +188,14 @@ build' :: PrismP s t a b -> b -> t
 build' pr = unTagged . pr . Tagged
 ```
 
-Lastly, we redefine `the` with our brand new prism:
+Remember concrete `the`? It focus on the `a` hidden behind a `Maybe a`:
+
+```haskell
+the :: Prism (Maybe a) (Maybe b) a b
+the = Prism (maybe (Right Nothing) Left) Just
+```
+
+We can redefine it with our brand new profunctor prism:
 
 ```haskell
 the' :: PrismP (Maybe a) (Maybe b) a b
@@ -175,8 +205,8 @@ the' = dimap (maybe (Right Nothing) Left) (either Just id) . left
 ### Profunctor Affine
 
 Previously, we saw that `preview :: s -> a + t` and `set :: (b, s) -> t` are the
-primitives that conform concrete prisms. This time, turning `h :: p a b` into `p
-s t` will require several features. This is what we need to achieve it:
+primitives that conform concrete affines. This time, turning `h :: p a b` into
+`p s t` will require several features. This is what we need to achieve it:
 
 ![affine](diagram/affine.svg)
 
@@ -186,7 +216,7 @@ Finally, if our focus wasn't there, we can select the lower path directly. Since
 we used cartesian and cocartesian features, this leads to this alias for affine:
 
 ```haskell
-type AffineP s t a b = forall p . (Cartesian p, Cocartesian p) => Optic p s t a b
+type AffineP s t a b = forall p . (Cartesian p, Cocartesian p) => p a b => p s t
 ```
 
 Our diagram is translated into Haskell this way:
@@ -215,8 +245,8 @@ maybeFirst' :: AffineP (Maybe a, c) (Maybe b, c) a b
 maybeFirst' = first . dimap (maybe (Right Nothing) Left) (either Just id) . left
 ```
 
-This expression is quite familiar to us, isn't it? In fact, it combines somehow
-the implementations of `π1'` and `the'`. In fact, this compiles nicely:
+This expression is quite familiar to us, isn't it? It combines somehow the
+implementations of `π1'` and `the'`. In fact, this snippet compiles nicely:
 
 ```haskell
 maybeFirst'' :: AffineP (Maybe a, c) (Maybe b, c) a b
@@ -224,8 +254,11 @@ maybeFirst'' = π1' . the'
 ```
 
 We're composing different optic kinds with `.`! What has just happened?!?! We'll
-come back to composition later, but you know what? You have been doing it for
-all this time.
+come back to composition later, but you know what? You have been composing
+optics for all this time! Indeed, `first`, `left`, `dimap f g`... are methods
+that turn generalized functions on a focus into generalized functions on a
+whole. As you can tell, we've been extensively composing them by means of `.` to
+conform our diagrams.
 
 ### Profunctor Traversal
 
@@ -248,7 +281,7 @@ which does exactly the inverse operation. The rest of the diagram should be
 straightforward. We represent profunctor traversals as follows:
 
 ```haskell
-type TraversalP s t a b = forall p . (Cartesian p, Cocartesian p, Monoidal p) => Optic p s t a b
+type TraversalP s t a b = forall p . (Cartesian p, Cocartesian p, Monoidal p) => p a b => p s t
 ```
 
 Here's the code associated to the diagram:
@@ -269,7 +302,16 @@ contents' :: TraversalP s t a b -> s -> [a]
 contents' tr = getConstant . runUpStar (tr (UpStar (\a -> Constant [a])))
 ```
 
-Finally, our concrete `firstNSecond` traversal is adapted as follows:
+Finally, the unsafe concrete `firstNSecond` example:
+
+```haskell
+firstNSecond :: Traversal (a, a, c) (b, b, c) a b
+firstNSecond = Traversal c f where
+  c (a1, a2, _)  = [a1, a2]
+  f (bs, (_, _, x)) = (head bs, (head . tail) bs, x)
+```
+
+could be adapted to a profunctor traversal as follows:
 
 ```haskell
 firstNSecond' :: TraversalP (a, a, c) (b, b, c) a b
@@ -287,10 +329,10 @@ profunctors and contextualizing them in the problem of updating immutable data
 structures. Why is this representation so trendy? The thing is that profunctor
 optics take composability to the next level.
 
-Profunctor optics are just functions, and functions enable the most natural way
-of composition in functional programming. We can compose functions, and
-therefore profunctor optics, by using `.`. Given this situation, there's no need
-to implement a specific combinator for each pair of optics. In fact, `first .
+Profunctor optics are essentially functions, and functions enable the most
+natural way of composition in functional programming. We can compose functions,
+and therefore profunctor optics, by using `.`. Given this situation, there's no
+need to implement a specific combinator for each pair of optics. In fact, `first .
 first` or `second . left . the` are perfectly valid examples of optic
 composition. Notice that we can even compose optics heterogeneously, as it's
 evidenced in the last expression, where a lens, a prism and an affine are
@@ -335,10 +377,10 @@ compose a lens with an adpater:
 Our lens requires a `p a b` to produce a `p s t`. When we embed (or compose) the
 adapter, we're being more specific about that gap. We still want to produce a `p
 s t`, but we don't need a full `p a b` to do so. We can build it from a smaller
-`p c d` computation instead. The resulting diagram uses only `Profunctor` and
-`Cartesian` utilities to be built. Those are exactly the constraints required by
-lens, so we can determine that composing a lens with an adapter results in
-another lens, as expected.
+`j :: p c d` computation instead. The resulting diagram uses only `Profunctor`
+and `Cartesian` utilities to be built. Those are exactly the constraints
+required by lens, so we can determine that composing a lens with an adapter
+results in another lens, as expected.
 
 ## Discussion
 
@@ -370,13 +412,13 @@ suggest to create the concrete optic manually and then translate it to its
 profunctor version. In our experience, profunctor optics generated this way
 might not be the most direct ones, but they are good enough for most of cases.
 
-We've only covered two optic representations. However, you should know that
-we're not moving from concrete to profunctor drastically. Indeed, there are
-other intermediate representations that we've been avoiding on purpose. The most
-widespread is [*Van
-Laarhoven*](https://www.twanvl.nl/blog/haskell/cps-functional-references), which
-is deployed in [Kmett's awesome optic library](https://github.com/ekmett/lens/).
-For instance, lenses look as follows:
+We've only covered two optic representations, that differ greatly from each
+other. However, you should know that there are other intermediate
+representations that we've been avoiding on purpose. The most widespread is
+[*Van Laarhoven*](https://www.twanvl.nl/blog/haskell/cps-functional-references),
+which is deployed in [Kmett's awesome optic
+library](https://github.com/ekmett/lens/). For instance, Van Laarhoven lenses
+look as follows:
 
 ```haskell
 type LensVL s t a b = Functor f => (a -> f b) -> (s -> f t)
@@ -384,9 +426,15 @@ type LensVL s t a b = Functor f => (a -> f b) -> (s -> f t)
 
 You can immediately realize that there are many similarities to the profunctor
 formulation. Try to implement an isomorphism between `LensVL` and `LensP` as an
-exercise.
+exercise. If you're interested on the foundations of this representation,
+there's an [epic
+post](https://bartoszmilewski.com/2015/07/13/from-lenses-to-yoneda-embedding/)
+on the categorical view of Van Laarhoven lenses. There's an [analogous
+post](https://bartoszmilewski.com/2017/07/07/profunctor-optics-the-categorical-view/)
+for the categorical view of profunctor optics, which I haven't analysed in
+detail yet.
 
 Finally, we must say that profunctor optics are trendy. Particularly, they're
 becoming [quite relevant](https://www.youtube.com/watch?v=OJtGECfksds) in
-PureScript. We don't know if they will become mainstream in functional
-languages, but I hope you don't fear them anymore.
+PureScript. We don't know if they will become mainstream in other functional
+languages, but at least I hope you don't fear them anymore.

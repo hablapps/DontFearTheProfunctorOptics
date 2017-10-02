@@ -42,8 +42,8 @@ updateView (Lens v u) a s = v (u (a, s)) == a
 updateUpdate :: Eq s => Lens s s a a -> a -> a -> s -> Bool
 updateUpdate (Lens v u) a1 a2 s = u (a2, (u (a1, s))) == u (a2, s)
 
-π1 :: Lens (a, c) (b, c) a b
-π1 = Lens v u where
+pi1 :: Lens (a, c) (b, c) a b
+pi1 = Lens v u where
   v = fst
   u (b, (_, c)) = (b, c)
 
@@ -64,7 +64,9 @@ buildMatch :: (Eq a, Eq s) => Prism s s a a -> a -> Bool
 buildMatch (Prism m b) a = m (b a) == Left a
 
 the :: Prism (Maybe a) (Maybe b) a b
-the = Prism (maybe (Right Nothing) Left) Just
+the = Prism m b where
+  m = maybe (Right Nothing) Left
+  b = Just
 
 -- Affine
 
@@ -239,8 +241,8 @@ view' ln = getConstant . runUpStar (ln (UpStar Constant))
 update' :: LensP s t a b -> (b, s) -> t
 update' ln (b, s) = ln (const b) s
 
-π1' :: LensP (a, c) (b, c) a b
-π1' = first
+pi1' :: LensP (a, c) (b, c) a b
+pi1' = first
 
 -- Profunctor Prism
 
@@ -277,7 +279,7 @@ maybeFirst' :: AffineP (Maybe a, c) (Maybe b, c) a b
 maybeFirst' = first . dimap (maybe (Right Nothing) Left) (either Just id) . left
 
 maybeFirst'' :: AffineP (Maybe a, c) (Maybe b, c) a b
-maybeFirst'' = π1' . the'
+maybeFirst'' = pi1' . the'
 
 -- Profunctor Traversal
 
