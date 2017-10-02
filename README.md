@@ -8,6 +8,6 @@ profunctor and profunctor optics easier to approach.
 
 * Part I: [Optics, Concretely](Optics.md)
 * Part II: [Profunctors](Profunctors.md)
-* Part III: [Profunctor Optics](ProfunctorOptics.hs)
+* Part III: [Profunctor Optics](ProfunctorOptics.md)
 
 Any feedback is welcome!
