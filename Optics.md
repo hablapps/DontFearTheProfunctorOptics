@@ -80,7 +80,7 @@ Informally, these laws check that `update` is exclusively modifying the focus an
 You might be thinking that lenses are not necessary to achieve such a simple task. Why should we care about them? The thing is that they have become very handy to deal with nested immutable data structures. In fact, this is a direct consequence of one of the major features of optics: they compose! As an example, we could compose lenses to update the first component of a 2-tuple which is surrounded by additional 2-tuple layers:
 
 ```haskell
-λ> update (π1 |.| π1 |.| π1) ()"hi", (((1, 'a'), 2.0), True))
+λ> update (π1 |.| π1 |.| π1) ("hi", (((1, 'a'), 2.0), True))
 ((("hi",'a'),2.0),True)
 ```
 
