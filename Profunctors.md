@@ -26,7 +26,7 @@ result type:
 
 ```haskell
 instance Functor ((->) r) where
-  fmap f g = g . f
+  fmap f g = f . g
 ```
 
 Contravariant functors are pretty much like functors, but they require a
