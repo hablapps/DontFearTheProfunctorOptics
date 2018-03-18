@@ -47,7 +47,7 @@ Thereby, the only feature that we require to extend `h :: p a b` into `p s t` is
 follows:
 
 ```haskell
-type AdapterP s t a b = forall p . Profunctor p => p a b => p s t
+type AdapterP s t a b = forall p . Profunctor p => p a b -> p s t
 ```
 
 In fact, we could translate the diagram above into Haskell this way:
@@ -109,7 +109,7 @@ interoperable with a multi-input box. Since we only require `Profunctor` and
 `Cartesian`, our profunctor lens is represented as follows:
 
 ```haskell
-type LensP s t a b = forall p . Cartesian p => p a b => p s t
+type LensP s t a b = forall p . Cartesian p => p a b -> p s t
 ```
 
 And this is how we encode the previous diagram:
@@ -167,7 +167,7 @@ t` into a `t`. From this diagram, we can infer that a prism depends on
 `Cocartesian`:
 
 ```haskell
-type PrismP s t a b = forall p . Cocartesian p => p a b => p s t
+type PrismP s t a b = forall p . Cocartesian p => p a b -> p s t
 ```
 
 As usual, here it is the textual version of the diagram above:
@@ -216,7 +216,7 @@ Finally, if our focus wasn't there, we can select the lower path directly. Since
 we used cartesian and cocartesian features, this leads to this alias for affine:
 
 ```haskell
-type AffineP s t a b = forall p . (Cartesian p, Cocartesian p) => p a b => p s t
+type AffineP s t a b = forall p . (Cartesian p, Cocartesian p) => p a b -> p s t
 ```
 
 Our diagram is translated into Haskell this way:
@@ -281,7 +281,7 @@ which does exactly the inverse operation. The rest of the diagram should be
 straightforward. We represent profunctor traversals as follows:
 
 ```haskell
-type TraversalP s t a b = forall p . (Cartesian p, Cocartesian p, Monoidal p) => p a b => p s t
+type TraversalP s t a b = forall p . (Cartesian p, Cocartesian p, Monoidal p) => p a b -> p s t
 ```
 
 Here's the code associated to the diagram:
