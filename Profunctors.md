@@ -202,7 +202,7 @@ dimap coassoc' coassoc (left (left h)) = left h
 rzero    :: Either a Void -> a
 rzero'   :: a -> Either a Void
 coassoc  :: Either a (Either b c) -> Either (Either a b) c
-coassoc' :: Either (Either a b) c -> Eigher a (Either b c)
+coassoc' :: Either (Either a b) c -> Either a (Either b c)
 ```
 
 And here it's the function instance:
