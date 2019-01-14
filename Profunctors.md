@@ -317,6 +317,8 @@ parameter type) as an exercise:
 newtype DownStar f a b = DownStar { runDownStar :: f a -> b }
 ```
 
+(You may not able instantiate all three classes for `DownStar`. If so, try to reason about why certain class cannot be instantiated.)
+
 Take [`Tagged`](http://oleg.fi/gists/posts/2017-04-18-glassery.html) as another
 example:
 
