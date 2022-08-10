@@ -208,7 +208,7 @@ maybeFirst = Affine p st where
   st (b, (ma, c)) = (ma $> b, c)
 ```
 
-There's no always an `a` hidden behind this data structure. On the other hand, we can't build a whole `(Maybe b, c)` simply from a `b`. In fact, we need a `c` to do so. In addition, the affine laws make it impossible to update the focus if it didn't exist in the whole. Therefore, we need the complete `(Maybe a, c)` as contextual information. Next, we show a scenario where we run this optic:
+There's not always an `a` hidden behind this data structure. On the other hand, we can't build a whole `(Maybe b, c)` simply from a `b`. In fact, we need a `c` to do so. In addition, the affine laws make it impossible to update the focus if it didn't exist in the whole. Therefore, we need the complete `(Maybe a, c)` as contextual information. Next, we show a scenario where we run this optic:
 
 ```haskell
 λ> preview maybeFirst (Just 1, "hi")
