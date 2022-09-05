@@ -60,11 +60,11 @@ adapterC2P (Adapter f t) = dimap f t
 Conversely, how do we recover the concrete representation from the profunctor
 one? To do so, we need to use a specific profunctor instance for each operator
 of the concrete representation (`from` & `to`). For instance, we require `UpStar
-Constant` and `Tagged` to recover `from` and `to`, respectively:
+Const` and `Tagged` to recover `from` and `to`, respectively:
 
 ```haskell
 from' :: AdapterP s t a b -> s -> a
-from' ad = getConstant . runUpStar (ad (UpStar Constant))
+from' ad = getConst . runUpStar (ad (UpStar Const))
 
 to' :: AdapterP s t a b -> b -> t
 to' ad = unTagged . ad . Tagged
@@ -121,11 +121,11 @@ lensC2P (Lens v u) = dimap dup u . first . lmap v where
 ```
 
 On the other hand, we could recover the concrete lens from a profunctor lens by
-using `UpStar Constant` and `->` instances:
+using `UpStar Const` and `->` instances:
 
 ```haskell
 view' :: LensP s t a b -> s -> a
-view' ln = getConstant . runUpStar (ln (UpStar Constant))
+view' ln = getConst . runUpStar (ln (UpStar Const))
 
 update' :: LensP s t a b -> (b, s) -> t
 update' ln (b, s) = ln (const b) s
@@ -299,7 +299,7 @@ We'll show now how to recover `contents`, since `fill` is kind of broken:
 
 ```haskell
 contents' :: TraversalP s t a b -> s -> [a]
-contents' tr = getConstant . runUpStar (tr (UpStar (\a -> Constant [a])))
+contents' tr = getConst . runUpStar (tr (UpStar (\a -> Const [a])))
 ```
 
 Finally, the unsafe concrete `firstNSecond` example:
