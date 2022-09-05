@@ -179,7 +179,7 @@ to be implicit in our diagram representation. The second law `dimap assoc assoc'
 
 This representation seems more complex, but in essence, it states that nesting
 `first`s doesn't break previous law. This is implicit in the diagram as well,
-where `b` and `c` simply pass trough, regardless of the nested boxes in the
+where `b` and `c` simply pass-through, regardless of the nested boxes in the
 upper case.
 
 ### Cocartesian
