@@ -229,7 +229,7 @@ Finally, *Traversal* will be introduced. This optic is very useful when the whol
 
 ```haskell
 data Traversal s t a b = Traversal { contents :: s -> [a]
-                                   , fill     :: [b] -> s -> t }
+                                   , fill     :: ([b], s) -> t }
 ```
 
 Here, `contents` is responsible for getting all the focus values, while `fill` updates them. However, this way of representing traversals is wrong, since the number of focus values should be determined by `s` and must be consistent among `contents` and `fill`. For that reason, traversals are concretely represented with a [nested list](https://twanvl.nl/blog/haskell/non-regular1) coalgebra or a [store free applicative](https://bartoszmilewski.com/2015/07/13/from-lenses-to-yoneda-embedding/) coalgebra, where the aforementioned conditions are preserved. However, these definitions are beyond the scope of this post. From now on, we'll be using our fake traversal, since it provides a nice introductory intuition. Similarly, traversal laws won't be covered. As usual, we provide a traversal example:
